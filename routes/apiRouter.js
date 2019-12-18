@@ -2,6 +2,7 @@ const express = require("express");
 const Users = require("../models/user-models");
 const router = express.Router();
 const jwt = require("jsonwebtoken");
+const restricted = require("../middleware/restricted-middleware");
 const bcrypt = require("bcryptjs");
 
 router.post("/register", (req, res) => {
@@ -65,6 +66,17 @@ function generateToken(user) {
   return jwt.sign(payload, "my fancy shmancy secret", options);
 }
 
-router.get("/users", (req, res) => {});
+router.get("/users", restricted, (req, res) => {
+  Users.find()
+    .then(users => {
+      res.status(200).json(users);
+    })
+    .catch(err => {
+      console.log(err);
+      res
+        .status(500)
+        .json({ message: "There was a server error getting all the users" });
+    });
+});
 
 module.exports = router;
