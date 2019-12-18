@@ -12,32 +12,58 @@ router.post("/register", (req, res) => {
       message: "username, password, and department fields are required"
     });
   } else {
-    bcrypt.hashSync(body.password, 8, (err, hash) => {
-      if (err) {
-        console.log("Error hashing: ", err);
+    const hash = bcrypt.hashSync(body.password, 8);
+    const user = { ...body, password: hash };
+    Users.add(user)
+      .then(newUser => {
+        res.status(201).json(newUser);
+      })
+      .catch(err => {
+        console.log(err);
         res.status(500).json({
-          message: "There was a server error trying to hash the password"
+          message: "There was an error adding the user to the db"
         });
-      } else {
-        const user = { ...body, password: hash };
-        Users.add(user)
-          .then(newUser => {
-            res.status(201).json(newUser);
-          })
-          .catch(err => {
-            console.log(err);
-            res
-              .status(500)
-              .json({
-                message: "There was an error adding the user to the db"
-              });
-          });
-      }
-    });
+      });
   }
 });
 
-router.post("/login", (req, res) => {});
+router.post("/login", (req, res) => {
+  const body = req.body;
+  if (!body.username || !body.password) {
+    res
+      .status(400)
+      .json({ message: "username and password fields are required" });
+  } else {
+    Users.getUserByUsername(body.username)
+      .then(dbUser => {
+        if (dbUser && bcrypt.compareSync(body.password, dbUser.password)) {
+          const token = generateToken(dbUser);
+          res
+            .status(200)
+            .json({ message: "Welcome! Here's that token.", token });
+        } else {
+          res.status(401).json({ message: "You shall not pass!" });
+        }
+      })
+      .catch(err => {
+        console.log(err);
+        res
+          .status(500)
+          .json({ message: "There was an error retrieving the hashed pass" });
+      });
+  }
+});
+
+function generateToken(user) {
+  const payload = {
+    subject: user.id,
+    username: user.username
+  };
+  const options = {
+    expiresIn: "5h"
+  };
+  return jwt.sign(payload, "my fancy shmancy secret", options);
+}
 
 router.get("/users", (req, res) => {});
 
